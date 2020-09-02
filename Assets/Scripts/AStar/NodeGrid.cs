@@ -105,8 +105,9 @@ public class NodeGrid : MonoBehaviour
     }
 
     public void RecalculateNodes(Vector3 min, Vector3 max) {
-        min = min - Vector3.one * nodeSpacing;
-        max = max + Vector3.one * nodeSpacing;
+        int kernelExtents = (KernelSize - 1) / 2;
+        min = min - Vector3.one * nodeSpacing * kernelExtents;
+        max = max + Vector3.one * nodeSpacing * kernelExtents;
         var nodes = GetNodesWithin(min, max);
         foreach (Node node in nodes) {
             node.CalculateGround();
@@ -115,6 +116,9 @@ public class NodeGrid : MonoBehaviour
             node.CalculateBlurredPenalty(KernelSize);
             node.CalculateCanWalkOn(defaultCharacterSize, defaultStepSize, defaultMaxSlope);
             node.CalculateNeighbors(defaultCharacterSize, defaultStepSize, defaultMaxSlope);
+
+            if (node.blurredPenalty > 200)
+                Debug.Log(node.blurredPenalty);
 
             if (node.blurredPenalty > maxBlurredPenalty)
                 maxBlurredPenalty = node.blurredPenalty;
@@ -171,9 +175,6 @@ public class NodeGrid : MonoBehaviour
 
                 int blurredPenalty = Mathf.RoundToInt((float)penaltiesYPass[x,z,0] / (kernelSize * kernelSize * kernelSize));
                 nodeGrid[x,z,0].blurredPenalty = blurredPenalty;
-
-                if (x == 0)
-                    Debug.Log(blurredPenalty);
 
                 if (blurredPenalty > maxBlurredPenalty)
                     maxBlurredPenalty = blurredPenalty;
@@ -355,6 +356,37 @@ public class NodeGrid : MonoBehaviour
         return nodeGrid[x,z,y];
     }
 
+    public Node GetClosestWalkableNode(Vector3 position, Vector3 size, float stepSize, float maxSlope) {
+        Node startNode = GetNodeFromWorldPoint(position);
+
+        Queue<Node> openSet = new Queue<Node>();
+        HashSet<Node> closedSet = new HashSet<Node>();
+        openSet.Enqueue(startNode);
+        closedSet.Add(startNode);
+        while (openSet.Count > 0) {
+            Node targetNode = openSet.Dequeue();
+            if (targetNode.CanWalkOn(size, stepSize, maxSlope))
+                return targetNode;
+
+            Stack<Node> stack = new Stack<Node>();
+            stack.Push(nodeGrid[targetNode.gridX, targetNode.gridZ, Mathf.Clamp(targetNode.gridY + 1, 0, gridSizeY)]); //above
+            stack.Push(nodeGrid[targetNode.gridX, targetNode.gridZ, Mathf.Clamp(targetNode.gridY - 1, 0, gridSizeY)]); //below
+            stack.Push(nodeGrid[targetNode.gridX, Mathf.Clamp(targetNode.gridZ + 1, 0, gridSizeZ), targetNode.gridY]); //forward
+            stack.Push(nodeGrid[targetNode.gridX, Mathf.Clamp(targetNode.gridZ - 1, 0, gridSizeZ), targetNode.gridY]); //backward
+            stack.Push(nodeGrid[Mathf.Clamp(targetNode.gridX + 1, 0, gridSizeX), targetNode.gridZ, targetNode.gridY]); //right
+            stack.Push(nodeGrid[Mathf.Clamp(targetNode.gridX - 1, 0, gridSizeX), targetNode.gridZ, targetNode.gridY]); //left
+
+            while (stack.Count > 0) {
+                Node nextNode = stack.Pop();
+                if (!closedSet.Contains(nextNode)) {
+                    openSet.Enqueue(nextNode);
+                    closedSet.Add(nextNode);
+                }
+            }
+        }
+        return null;
+    }
+
     private void OnDrawGizmos()
     {
         //Gizmos.DrawWireCube(transform.position, new Vector3(gridWorldSize.x, gridWorldSize.y, gridWorldSize.z));
@@ -374,7 +406,7 @@ public class NodeGrid : MonoBehaviour
                         break;
                     case Enums.NodeState.Walkable:
                         if (displayGizmosWalkable) {
-                            Gizmos.color = Color.Lerp(Color.white,Color.black, Mathf.InverseLerp(minBlurredPenalty, maxBlurredPenalty, n.blurredPenalty));
+                            Gizmos.color = Color.Lerp(Color.green,Color.red, Mathf.InverseLerp(minBlurredPenalty, maxBlurredPenalty, n.blurredPenalty));
                             Gizmos.DrawCube(n.worldPosition, new Vector3(nodeSpacing * 1f,nodeSpacing * 0.1f,nodeSpacing * 1f));
                         }
                         break;

@@ -73,7 +73,7 @@ public class Node : IHeapItem<Node>
         }
         else
         {
-            movementPenalty = 0;
+            movementPenalty = 10; //Add penalty to avoid edges.
             worldPosition = castPoint;
             worldNormal = Vector3.up;
             slope = 0f;
@@ -82,6 +82,11 @@ public class Node : IHeapItem<Node>
     }
 
     public void CalculateBlurredPenalty(int kernelSize) {
+        if (state == Enums.NodeState.Air) {
+            blurredPenalty = movementPenalty;
+            return;
+        }
+
         int kernelExtent = kernelSize / 2;
         int blurValue = 0;
 
@@ -91,11 +96,13 @@ public class Node : IHeapItem<Node>
             for (int z = gridZ - kernelExtent; z <= gridZ + kernelExtent; z++) {
                 if (z < 0 || z >= nodeGrid.gridSizeZ) continue;
                 for (int y = gridY - kernelExtent; y <= gridY + kernelExtent; y++) {
-                    if (y < 0 || y >= nodeGrid.gridSizeY
-                        || nodeGrid.nodeGrid[x,z,y].state == Enums.NodeState.Air) continue;
-
-                    blurValue += nodeGrid.nodeGrid[x,z,y].movementPenalty;
-                    count++;
+                    if (y < 0 || y >= nodeGrid.gridSizeY) continue;
+                    if (y == gridY && (z != gridZ || x != gridX) && nodeGrid.nodeGrid[x,z,y].state == Enums.NodeState.Air) {
+                        blurValue += nodeGrid.nodeGrid[x,z,y].movementPenalty;
+                    } else if (nodeGrid.nodeGrid[x,z,y].state != Enums.NodeState.Air) {
+                        blurValue += nodeGrid.nodeGrid[x,z,y].movementPenalty;
+                        count++;
+                    }
                 }
             }
         }
@@ -185,6 +192,10 @@ public class Node : IHeapItem<Node>
 
     public int CompareTo(Node nodeToCompare)
     {
+        if (nodeToCompare == null) {
+            Debug.Log("No node to compare");
+            return 0;
+        }
         int compare = FCost.CompareTo(nodeToCompare.FCost);
         if (compare == 0)
             compare = hCost.CompareTo(nodeToCompare.hCost);

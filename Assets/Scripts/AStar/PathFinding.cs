@@ -16,46 +16,56 @@ public class PathFinding : MonoBehaviour
         bool pathSuccess = false;
         Node startNode = nodeGrid.GetNodeFromWorldPoint(request.pathStart);
         Node targetNode = nodeGrid.GetNodeFromWorldPoint(request.pathEnd);
+        NodeCost startNodeCost = new NodeCost(startNode);
+        NodeCost targetNodeCost = new NodeCost(targetNode);
         HashSet<Node> acceptableNodes = new HashSet<Node>();
 
         if (targetNode.CanWalkOn(request.characterSize, request.stepSize, request.maxSlope)) {
-            Heap<Node> openSet = new Heap<Node>(nodeGrid.MaxSize);
+            Heap<NodeCost> openSetCost = new Heap<NodeCost>(nodeGrid.MaxSize);
+            Dictionary<Node, NodeCost> nodeCostDict = new Dictionary<Node, NodeCost>(nodeGrid.MaxSize);
             HashSet<Node> closedSet = new HashSet<Node>();
+            openSetCost.Add(startNodeCost);
+            nodeCostDict.Add(startNodeCost.node, startNodeCost);
 
-            openSet.Add(startNode);
-
-            while (openSet.Count > 0)
+            while (openSetCost.Count > 0)
             {
-                Node currentNode = openSet.RemoveFirst();
-                closedSet.Add(currentNode);
+                NodeCost currentNodeCost = openSetCost.RemoveFirst();
+                nodeCostDict.Remove(currentNodeCost.node);
+                closedSet.Add(currentNodeCost.node);
 
                 //currentNode == targetNode
-                if ((currentNode.worldPosition - targetNode.worldPosition).sqrMagnitude <= request.radius * request.radius)
+                if ((currentNodeCost.node.worldPosition - targetNodeCost.node.worldPosition).sqrMagnitude <= request.radius * request.radius)
                     //&& (!request.lineOfSight || Helper.HasClearLineOfSight(currentNode.worldPosition + Vector3.up * request.heightOffGround, request.visualTarget)))
                 {
-                    targetNode = currentNode;
+                    targetNodeCost = currentNodeCost;
                     pathSuccess = true;
                     break;
                 }
 
-                foreach (Node neighbour in currentNode.GetNeighbours(request.characterSize, request.stepSize, request.maxSlope))
+                foreach (Node neighbour in currentNodeCost.node.GetNeighbours(request.characterSize, request.stepSize, request.maxSlope))
                 {
                     if (closedSet.Contains(neighbour))
                         continue;
+                    NodeCost neighbourCost;
+                    if (!nodeCostDict.TryGetValue(neighbour, out neighbourCost)) {
+                        neighbourCost = new NodeCost(neighbour);
+                    }
 
-                    int newCostToNeighbour = currentNode.gCost + GetDistance(currentNode, neighbour) + neighbour.blurredPenalty;
+                    int newCostToNeighbour = currentNodeCost.gCost + GetDistance(currentNodeCost.node, neighbourCost.node) + neighbourCost.node.blurredPenalty;
                     //int newCostToNeighbour = currentNode.gCost + Mathf.RoundToInt(Vector3.Distance(currentNode.worldPosition, neighbour.worldPosition) * 100) + neighbour.blurredPenalty * 100;
-                    if (newCostToNeighbour < neighbour.gCost || !openSet.Contains(neighbour))
+                    if (newCostToNeighbour < neighbourCost.gCost || !openSetCost.Contains(neighbourCost))
                     {
-                        neighbour.gCost = newCostToNeighbour;
-                        neighbour.hCost =  GetDistance(neighbour, targetNode);
+                        neighbourCost.gCost = newCostToNeighbour;
+                        neighbourCost.hCost =  GetDistance(neighbourCost.node, targetNode);
                         //neighbour.hCost =  Mathf.RoundToInt(Vector3.Distance(neighbour.worldPosition, targetNode.worldPosition) * 100);
-                        neighbour.parent = currentNode;
+                        neighbourCost.parent = currentNodeCost;
 
-                        if (!openSet.Contains(neighbour))
-                            openSet.Add(neighbour);
-                        else
-                            openSet.UpdateItem(neighbour);
+                        if (!openSetCost.Contains(neighbourCost)) {
+                            openSetCost.Add(neighbourCost);
+                            nodeCostDict.Add(neighbourCost.node, neighbourCost);
+                        } else {
+                            openSetCost.UpdateItem(neighbourCost);
+                        }
                     }
                 }
             }
@@ -63,20 +73,23 @@ public class PathFinding : MonoBehaviour
 
         if (pathSuccess)
         {
-            waypoints = RetracePath(startNode, targetNode);
+            waypoints = RetracePath(startNodeCost, targetNodeCost);
             pathSuccess = waypoints.Length > 0;
+            // if (pathSuccess && goToExactLocation) {
+            //     waypoints[waypoints.Length - 1] = request.pathEnd;
+            // }
         }
         callback(new PathResult(waypoints, pathSuccess, request.callback));
     }
 
-    private Vector3[] RetracePath(Node startNode, Node endNode)
+    private Vector3[] RetracePath(NodeCost startNodeCost, NodeCost endNodeCost)
     {
         List<Node> path = new List<Node>();
-        Node currentNode = endNode;
+        NodeCost currentNode = endNodeCost;
 
-        while (currentNode != startNode)
+        while (currentNode != startNodeCost)
         {
-            path.Add(currentNode);
+            path.Add(currentNode.node);
             currentNode = currentNode.parent;
         }
 
