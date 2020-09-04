@@ -5,15 +5,11 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using UnityEngine;
 
-public class DyNode
+public class DyNode : IDisposable
 {
     private Transform connectedTransform;
     public Vector3 relativePosition;
-    public Vector3 worldPosition {
-        get {
-            return connectedTransform.position + relativePosition;
-        }
-    }
+    public Vector3 worldPosition;
     public float slope = 0f;
     public bool walkable = false;
     public int movementPenalty = 0;
@@ -22,10 +18,13 @@ public class DyNode
     public NodeCluster nodeCluster;
     public List<DyNode> neighbours = new List<DyNode>();
     public ObservableCollection<DyNode> blurNeighbours = new ObservableCollection<DyNode>();
+    
+    public event EventHandler PositionHasChanged;
 
     public DyNode(Transform _connectedTransform, Vector3 _relativePosition) {
         connectedTransform = _connectedTransform;
         relativePosition = _relativePosition;
+        worldPosition = connectedTransform.position + relativePosition;
 
         DyNodeGenerator generator;
         if (connectedTransform.TryGetComponent<DyNodeGenerator>(out generator)) {
@@ -39,10 +38,19 @@ public class DyNode
         blurNeighbours.CollectionChanged += OnBlurNeighboursChanged;
     }
 
+    private void ThrowNodeModified() {
+        EventHandler handler = PositionHasChanged;
+        if (handler != null)
+        {
+            handler(this, EventArgs.Empty);
+        }
+    }
+
     private void OnPositionHasChanged(object sender, EventArgs e) {
         UpdateSelf();
         UpdateNeighbours();
     }
+
     private void OnBlurNeighboursChanged(object sender, NotifyCollectionChangedEventArgs e) {
         CalculateBlurredPenalty();
     }
@@ -83,10 +91,14 @@ public class DyNode
     }
 
     public void UpdateSelf() {
+        bool startWalkable = walkable;
+        Vector3 startWorldPosition = worldPosition;
+
+        worldPosition = connectedTransform.position + relativePosition;
         //Update cluster
         NodeCluster cluster = DyNodeManager.GetClusterFromWorldPosition(this.worldPosition);
         if (cluster != this.nodeCluster) {
-            this.nodeCluster.RemoveDyNode(this);
+            this.nodeCluster?.RemoveDyNode(this);
             cluster.AddDyNode(this);
         }
 
@@ -99,9 +111,13 @@ public class DyNode
                     walkable = false;
             }
         }
+
+        if (startWalkable != walkable || startWorldPosition != worldPosition)
+            ThrowNodeModified();
     }
 
     public void UpdateNeighbours() {
+        bool modified = false;
         float maxSqrDist = DyNodeManager.Instance.stepDistance * DyNodeManager.Instance.stepDistance;
         float maxSqrBlurDist = DyNodeManager.Instance.blurDistance * DyNodeManager.Instance.blurDistance;
 
@@ -120,6 +136,7 @@ public class DyNode
                 this.RemoveNeighbour(neighbour);
                 neighbour.RemoveNeighbour(this);
                 neighbourIdx--;
+                modified = true;
             }
             neighbourIdx++;
         }
@@ -130,6 +147,7 @@ public class DyNode
                 this.RemoveBlurNeighbour(blurNeighbour);
                 blurNeighbour.RemoveBlurNeighbour(this);
                 blurNeighbourIdx--;
+                modified = true;
             }
             blurNeighbourIdx++;
         }
@@ -145,6 +163,7 @@ public class DyNode
                             && sqrMagnitude <= maxSqrDist) { //Within distance
                             this.AddNeighbour(dyNode);
                             dyNode.AddNeighbour(this);
+                            modified = true;
                         }
                         // else {
                         //     this.RemoveNeighbour(dyNode);
@@ -155,23 +174,60 @@ public class DyNode
                         if (dyNode != this && sqrMagnitude <= maxSqrBlurDist) {
                             this.AddBlurNeighbour(dyNode);
                             dyNode.AddBlurNeighbour(this);
+                            modified = true;
                         }
                     });
                 }
             }
         }
+
+        if (modified) {
+            ThrowNodeModified();
+        }
     }
 
-    public List<DyNode> GetWalkableNeighbours(Vector3 size) {
+    public List<DyNode> GetWalkableNeighbours(Vector3 size) { //Needs work if we're going to use this.
         return neighbours.FindAll(neighbour => neighbour.walkable);
     }
 
-    public void DrawGizmos() {
-        Gizmos.color = !walkable ? Color.red : Color.Lerp(Color.white,Color.black, Mathf.InverseLerp(0, 1, blurredPenalty));
+    public void RemoveNeighbours() {
+        //Remove neighbours
+        while (neighbours.Count > 0) {
+            DyNode neighbour = neighbours[neighbours.Count - 1];
+            this.RemoveNeighbour(neighbour);
+            neighbour.RemoveNeighbour(this);
+        }
+        
+        while (blurNeighbours.Count > 0) {
+            DyNode blurNeighbour = blurNeighbours[blurNeighbours.Count - 1];
+            this.RemoveBlurNeighbour(blurNeighbour);
+            blurNeighbour.RemoveBlurNeighbour(this);
+        }
+    }
+
+    public void DrawGizmos(bool drawNeighbourConnection, bool drawBlurNeighbourConnection) {
+        Gizmos.color = !walkable ? Color.red : Color.Lerp(Color.green,Color.magenta, Mathf.InverseLerp(0, 2, blurredPenalty));
         Gizmos.DrawSphere(worldPosition, 0.1f);
-        Gizmos.color = Color.blue;
-        neighbours.ForEach(dyNode => {
-            Gizmos.DrawLine(this.worldPosition + Vector3.up * 0.01f, dyNode.worldPosition + Vector3.up * 0.01f);
-        });
+        if (drawNeighbourConnection) {
+            Gizmos.color = Color.blue;
+            neighbours.ForEach(dyNode => {
+                Gizmos.DrawLine(this.worldPosition + Vector3.up * 0.01f, dyNode.worldPosition + Vector3.up * 0.01f);
+            });
+        }
+        if (drawBlurNeighbourConnection) {
+            Gizmos.color = Color.gray;
+            foreach (DyNode dyNode in blurNeighbours)
+            {
+                Gizmos.DrawLine(this.worldPosition + Vector3.up * 0.02f, dyNode.worldPosition + Vector3.up * 0.02f);
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        DyNodeGenerator generator;
+        if (connectedTransform.TryGetComponent<DyNodeGenerator>(out generator)) {
+            generator.PositionHasChanged -= OnPositionHasChanged;
+        }
     }
 }

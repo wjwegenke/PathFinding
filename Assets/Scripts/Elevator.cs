@@ -9,14 +9,22 @@ public class Elevator : MonoBehaviour
     public Transform endPosition;
     public float speed = 3;
 
-    void Update()
-    {
-        Vector3 targetPosition = startPosition.position;
-        if (directionForward) 
-            targetPosition = endPosition.position;
-        transform.position = Vector3.MoveTowards(transform.position, targetPosition, speed * Time.deltaTime);
+    private void Start() {
+        StartCoroutine(RunElevator());
+    }
 
-        if (transform.position == targetPosition)
-            directionForward = !directionForward;
+    IEnumerator RunElevator() {
+        while (true) {
+            Vector3 targetPosition = startPosition.position;
+            if (directionForward) 
+                targetPosition = endPosition.position;
+            transform.position = Vector3.MoveTowards(transform.position, targetPosition, speed * Time.deltaTime);
+
+            if (transform.position == targetPosition) {
+                directionForward = !directionForward;
+                yield return new WaitForSeconds(3);
+            }
+            yield return null;
+        }
     }
 }
