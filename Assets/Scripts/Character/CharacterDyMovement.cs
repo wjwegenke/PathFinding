@@ -6,7 +6,7 @@ using UnityEngine;
 public class CharacterDyMovement : MonoBehaviour
 {
     public Transform targetTransform;
-    public float pathUpdateMoveThreshold = 0.5f;
+    public float pathUpdateMoveThreshold = 0.3f;
     public float minPathUpdateTime = 0.2f;
     private DyPath currentPath = new DyPath();
     private bool currentPathModified = false;
@@ -15,7 +15,7 @@ public class CharacterDyMovement : MonoBehaviour
     public bool drawPath;
     void Awake() {
         collider = GetComponent<Collider>();
-        currentPath.NodePositionHasChanged += OnPathModified;
+        currentPath.NodeModified += OnPathModified;
     }
     void Start()
     {
@@ -36,7 +36,8 @@ public class CharacterDyMovement : MonoBehaviour
     }
 
     private void OnPathModified(object sender, EventArgs e) {
-        currentPathModified = true;
+        if (!currentPath.isAllNodesWalkable || currentPath.isSplitPath || (currentPath.Path.Length > 0 && currentPath.connectedTransforms[0] != this.transform.parent))
+            currentPathModified = true;
     }
 
     public void OnPathFound(DyNode[] path, bool pathSuccess)
@@ -57,14 +58,18 @@ public class CharacterDyMovement : MonoBehaviour
 
 		float sqrMoveThreshold = pathUpdateMoveThreshold * pathUpdateMoveThreshold;
 		Vector3 targetPosOld = targetTransform.position;
+        Vector3 targetLocalPosOld = targetTransform.localPosition;
+        Transform targetParentOld = targetTransform.parent;
 
 		while (true) {
-            if (currentPathModified || (targetTransform.position - targetPosOld).sqrMagnitude > sqrMoveThreshold) {
+            if (currentPathModified || targetTransform.parent != targetParentOld || (targetTransform.localPosition - targetLocalPosOld).sqrMagnitude > sqrMoveThreshold) {
                 currentPathModified = false;
                 Vector3 startPosition = transform.position;
                 startPosition.y = collider.bounds.min.y;
 				DyPathManager.RequestPath(new DyPathRequest(startPosition, targetTransform.position, OnPathFound));
 				targetPosOld = targetTransform.position;
+                targetLocalPosOld = targetTransform.localPosition;
+                targetParentOld = targetTransform.parent;
 			}
 			yield return null;
 		}
@@ -77,7 +82,7 @@ public class CharacterDyMovement : MonoBehaviour
     private void OnDrawGizmos() {
         if (drawPath && currentPath != null) {
             Gizmos.color = Color.black;
-            foreach (DyNode n in currentPath.path) {
+            foreach (DyNode n in currentPath.Path) {
                 Gizmos.DrawCube(n.worldPosition, Vector3.one * 0.3f);
             }
         }

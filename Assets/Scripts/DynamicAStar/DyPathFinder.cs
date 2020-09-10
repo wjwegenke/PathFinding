@@ -8,7 +8,7 @@ public class DyPathFinder
     public void FindPath(DyPathRequest request, Action<DyPathResult> callback) {
         DyNode[] path = new DyNode[0];
         bool pathSuccess = false;
-        DyNode startDyNode = DyNodeManager.GetDyNodeFromWorldPosition(request.pathStart);
+        DyNode startDyNode = DyNodeManager.GetDyNodeFromWorldPosition(request.pathStart); //Might be an issue here, not getting the actual closest node?
         DyNode endDyNode = DyNodeManager.GetDyNodeFromWorldPosition(request.pathEnd);
         DyNodeCost startDyNodeCost = new DyNodeCost(startDyNode);
         DyNodeCost endDyNodeCost = new DyNodeCost(endDyNode);

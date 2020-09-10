@@ -7,7 +7,7 @@ using UnityEngine;
 
 public class DyNode : IDisposable
 {
-    private Transform connectedTransform;
+    public Transform connectedTransform;
     public Vector3 relativePosition;
     public Vector3 worldPosition;
     public float slope = 0f;
@@ -19,7 +19,7 @@ public class DyNode : IDisposable
     public List<DyNode> neighbours = new List<DyNode>();
     public ObservableCollection<DyNode> blurNeighbours = new ObservableCollection<DyNode>();
     
-    public event EventHandler PositionHasChanged;
+    public event EventHandler Modified;
 
     public DyNode(Transform _connectedTransform, Vector3 _relativePosition) {
         connectedTransform = _connectedTransform;
@@ -39,7 +39,7 @@ public class DyNode : IDisposable
     }
 
     private void ThrowNodeModified() {
-        EventHandler handler = PositionHasChanged;
+        EventHandler handler = Modified;
         if (handler != null)
         {
             handler(this, EventArgs.Empty);
@@ -107,8 +107,10 @@ public class DyNode : IDisposable
         walkable = true;
         if (colliders.Length > 0) {
             foreach (Collider collider in colliders) {
-                if (collider.transform != connectedTransform)
+                if (collider.transform != connectedTransform || !DyNodeManager.Instance.walkableRegionsDictionary.ContainsKey(connectedTransform.gameObject.layer)) {
                     walkable = false;
+                    break;
+                }
             }
         }
 

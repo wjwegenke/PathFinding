@@ -5,53 +5,98 @@ using UnityEngine;
 
 public class DyPath : IDisposable
 {
-    public DyNode[] path { get; private set; }
-    public event EventHandler NodePositionHasChanged;
-
-    public DyPath() {
-        this.path = new DyNode[0];
-    }
-
-    public DyPath(DyNode[] _path) {
-        this.path = _path;
-        foreach (DyNode dyNode in path) {
-            dyNode.PositionHasChanged += OnNodePositionHasChanged;
+    private DyNode[] _Path;
+    public DyNode[] Path { 
+        get {
+            return _Path;
+        }
+        private set {
+            _Path = value;
+            isAllNodesWalkable = GetIsAllNodesWalkable();
+            isSplitPath = GetIsSplitPath();
+            connectedTransforms = GetConnectedTransforms();
         }
     }
 
-    private void OnNodePositionHasChanged(object sender, EventArgs e) {
-        EventHandler handler = NodePositionHasChanged;
+    public bool isSplitPath;
+    public bool isAllNodesWalkable;
+    public Transform[] connectedTransforms;
+    public event EventHandler NodeModified;
+
+    public DyPath() {
+        this.Path = new DyNode[0];
+    }
+
+    public DyPath(DyNode[] _path) {
+        this.Path = _path;
+        foreach (DyNode dyNode in Path) {
+            dyNode.Modified += OnNodeModified;
+        }
+    }
+
+    private void OnNodeModified(object sender, EventArgs e) {
+        EventHandler handler = NodeModified;
         if (handler != null)
         {
             handler(this, EventArgs.Empty);
         }
     }
 
-    public void SetPath(DyNode[] _path) {
-        foreach (DyNode dyNode in path) {
-            dyNode.PositionHasChanged -= OnNodePositionHasChanged;
+    private bool GetIsAllNodesWalkable() {
+        if (Path == null || Path.Length == 0) return false;
+        for (int i = 0; i < Path.Length; i++) {
+            if (!Path[i].walkable)
+                return false;
         }
-        this.path = _path;
-        foreach (DyNode dyNode in path) {
-            dyNode.PositionHasChanged += OnNodePositionHasChanged;
+        return true;
+    }
+
+    private bool GetIsSplitPath() {
+        if (Path == null || Path.Length <= 1) return false;
+        for (int i = 1; i < Path.Length; i++) {
+            if (Path[i].connectedTransform != Path[i-1].connectedTransform)
+                return true;
+        }
+        return false;
+    }
+
+    private Transform[] GetConnectedTransforms() {
+        if (Path == null || Path.Length == 0) return new Transform[0];
+        HashSet<Transform> connectedTransformsHash = new HashSet<Transform>();
+        for (int i = 0; i < Path.Length; i++) {
+            if (!connectedTransformsHash.Contains(Path[i].connectedTransform))
+                connectedTransformsHash.Add(Path[i].connectedTransform);
+        }
+        Transform[] connectedTransforms = new Transform[connectedTransformsHash.Count];
+        connectedTransformsHash.CopyTo(connectedTransforms);
+        return connectedTransforms;
+    }
+
+    public void SetPath(DyNode[] _path) {
+        foreach (DyNode dyNode in Path) {
+            dyNode.Modified -= OnNodeModified;
+        }
+        this.Path = _path;
+        foreach (DyNode dyNode in Path) {
+            dyNode.Modified += OnNodeModified;
         }
     }
 
     internal void RemovePath()
     {
-        foreach (DyNode dyNode in path) {
-            dyNode.PositionHasChanged -= OnNodePositionHasChanged;
+        foreach (DyNode dyNode in Path) {
+            dyNode.Modified -= OnNodeModified;
         }
-        path = new DyNode[0];
+        Path = new DyNode[0];
     }
 
     public void Dispose()
     {
-        if (path != null) {
-            foreach (DyNode dyNode in path) {
-                dyNode.PositionHasChanged -= OnNodePositionHasChanged;
+        if (Path != null) {
+            foreach (DyNode dyNode in Path) {
+                dyNode.Modified -= OnNodeModified;
             }
-            path = null;
+            Path = null;
         }
     }
 }

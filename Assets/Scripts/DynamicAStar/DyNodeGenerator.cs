@@ -51,8 +51,10 @@ public class DyNodeGenerator : MonoBehaviour
                     if (createNode) {
                         DyNode dyNode = new DyNode(hit.transform, hit.point - hit.transform.position);
                         dyNode.slope = Mathf.Acos(hit.normal.y) * 180f / Mathf.PI;
-                        if (!DyNodeManager.Instance.walkableRegionsDictionary.TryGetValue(hit.transform.gameObject.layer, out dyNode.movementPenalty))
+                        if (!DyNodeManager.Instance.walkableRegionsDictionary.TryGetValue(hit.transform.gameObject.layer, out dyNode.movementPenalty)) {
                             DyNodeManager.Instance.unwalkableRegionsDictionary.TryGetValue(hit.transform.gameObject.layer, out dyNode.movementPenalty);
+                            dyNode.walkable = false;
+                        }
                         dyNode.blurredPenalty = dyNode.movementPenalty;
                         dyNodes.Add(dyNode);
                         DyNodeManager.AddDyNode(dyNode);
