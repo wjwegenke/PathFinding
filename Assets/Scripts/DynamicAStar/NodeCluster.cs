@@ -31,7 +31,10 @@ public class NodeCluster
     }
 
     public void UpdateNodes() {
-        dyNodes.ToList().ForEach(dyNode => dyNode.UpdateSelf());
+        dyNodes.ToList().ForEach(dyNode => {
+            dyNode.UpdateSelf();
+            dyNode.UpdateNeighbours();
+        });
     }
 
     // public DyNode GetDyNodeFromWorldPosition(Vector3 worldPosition) {

@@ -20,6 +20,8 @@ public class DyNodeManager : MonoBehaviour
     [HideInInspector]
     public int dyNodeCount = 0;
 
+    public HashSet<MovementCapsule> movementCapsules = new HashSet<MovementCapsule>();
+
     public TerrainType[] walkableRegions;
     public Dictionary<int, int> walkableRegionsDictionary = new Dictionary<int, int>();
     public TerrainType[] unwalkableRegions;
@@ -129,14 +131,14 @@ public class DyNodeManager : MonoBehaviour
         Instance.dyNodeCount--;
     }
 
-    public static void UpdateClustersWithin(Vector3 min, Vector3 max) {
-        int xMin = Mathf.FloorToInt(Mathf.Clamp((min.x - Instance.bottomLeftPosition.x) / Instance.clusterSize, 0, Instance.xClusters - 1));
-        int yMin = Mathf.FloorToInt(Mathf.Clamp((min.y - Instance.bottomLeftPosition.y) / Instance.clusterSize, 0, Instance.yClusters - 1));
-        int zMin = Mathf.FloorToInt(Mathf.Clamp((min.z - Instance.bottomLeftPosition.z) / Instance.clusterSize, 0, Instance.zClusters - 1));
+    public static void UpdateClustersAround(Vector3 min, Vector3 max) {
+        int xMin = Mathf.FloorToInt(Mathf.Clamp((min.x - Instance.bottomLeftPosition.x) / Instance.clusterSize - 1, 0, Instance.xClusters - 1));
+        int yMin = Mathf.FloorToInt(Mathf.Clamp((min.y - Instance.bottomLeftPosition.y) / Instance.clusterSize - 1, 0, Instance.yClusters - 1));
+        int zMin = Mathf.FloorToInt(Mathf.Clamp((min.z - Instance.bottomLeftPosition.z) / Instance.clusterSize - 1, 0, Instance.zClusters - 1));
         
-        int xMax = Mathf.FloorToInt(Mathf.Clamp((max.x - Instance.bottomLeftPosition.x) / Instance.clusterSize, 0, Instance.xClusters - 1));
-        int yMax = Mathf.FloorToInt(Mathf.Clamp((max.y - Instance.bottomLeftPosition.y) / Instance.clusterSize, 0, Instance.yClusters - 1));
-        int zMax = Mathf.FloorToInt(Mathf.Clamp((max.z - Instance.bottomLeftPosition.z) / Instance.clusterSize, 0, Instance.zClusters - 1));
+        int xMax = Mathf.FloorToInt(Mathf.Clamp((max.x - Instance.bottomLeftPosition.x) / Instance.clusterSize + 1, 0, Instance.xClusters - 1));
+        int yMax = Mathf.FloorToInt(Mathf.Clamp((max.y - Instance.bottomLeftPosition.y) / Instance.clusterSize + 1, 0, Instance.yClusters - 1));
+        int zMax = Mathf.FloorToInt(Mathf.Clamp((max.z - Instance.bottomLeftPosition.z) / Instance.clusterSize + 1, 0, Instance.zClusters - 1));
 
         for (int x = xMin; x <= xMax; x++) {
             for (int y = yMin; y <= yMax; y++) {

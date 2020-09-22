@@ -13,7 +13,7 @@ public class DyPathFinder
         DyNodeCost startDyNodeCost = new DyNodeCost(startDyNode);
         DyNodeCost endDyNodeCost = new DyNodeCost(endDyNode);
 
-        if (startDyNode != null && endDyNode != null && endDyNode.walkable) {
+        if (startDyNode != null && endDyNode != null && endDyNode.walkable && endDyNode.walkableCapsules.Contains(request.movementCapsule)) {
             Dictionary<DyNode, DyNodeCost> openSetDyNodeCostDict = new Dictionary<DyNode, DyNodeCost>(DyNodeManager.Instance.dyNodeCount);
             Heap<DyNodeCost> openSetCost = new Heap<DyNodeCost>(DyNodeManager.Instance.dyNodeCount);
             HashSet<DyNode> closedSet = new HashSet<DyNode>();
@@ -32,12 +32,16 @@ public class DyPathFinder
                     break;
                 }
 
-                foreach (DyNode neighbour in currentDyNodeCost.dyNode.neighbours) {
-                    if (closedSet.Contains(neighbour) || !neighbour.walkable) continue;
+                foreach (DyNodeEdge edge in currentDyNodeCost.dyNode.edges.Values) {
+                    if (closedSet.Contains(edge.targetNode)
+                        || !edge.targetNode.walkable
+                        || !edge.targetNode.walkableCapsules.Contains(request.movementCapsule)
+                        || !edge.movementCapsules.Contains(request.movementCapsule)
+                        || edge.targetNode.slope > request.maxSlope) continue;
 
                     DyNodeCost neighbourDyNodeCost;
-                    if (!openSetDyNodeCostDict.TryGetValue(neighbour, out neighbourDyNodeCost))
-                        neighbourDyNodeCost = new DyNodeCost(neighbour);
+                    if (!openSetDyNodeCostDict.TryGetValue(edge.targetNode, out neighbourDyNodeCost))
+                        neighbourDyNodeCost = new DyNodeCost(edge.targetNode);
 
                     float newCostToNeighbour = currentDyNodeCost.gCost + Vector3.Distance(currentDyNodeCost.dyNode.worldPosition, neighbourDyNodeCost.dyNode.worldPosition) + neighbourDyNodeCost.dyNode.blurredPenalty;
                     if (newCostToNeighbour < neighbourDyNodeCost.gCost || !openSetDyNodeCostDict.ContainsKey(neighbourDyNodeCost.dyNode)) {

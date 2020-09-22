@@ -6,6 +6,10 @@ using UnityEngine;
 public class CharacterDyMovement : MonoBehaviour
 {
     public Transform targetTransform;
+    public Transform stand;
+    public CapsuleCollider movementCollider;
+    public MovementCapsule movementCapsule;
+    public float maxSlope = 40f;
     public float pathUpdateMoveThreshold = 0.3f;
     public float minPathUpdateTime = 0.2f;
     private DyPath currentPath = new DyPath();
@@ -16,6 +20,8 @@ public class CharacterDyMovement : MonoBehaviour
     void Awake() {
         collider = GetComponent<Collider>();
         currentPath.NodeModified += OnPathModified;
+        movementCapsule = new MovementCapsule(movementCollider.center.y - stand.localPosition.y, movementCollider.height, movementCollider.radius);
+        DyNodeManager.Instance.movementCapsules.Add(movementCapsule);
     }
     void Start()
     {
@@ -64,9 +70,7 @@ public class CharacterDyMovement : MonoBehaviour
 		while (true) {
             if (currentPathModified || targetTransform.parent != targetParentOld || (targetTransform.localPosition - targetLocalPosOld).sqrMagnitude > sqrMoveThreshold) {
                 currentPathModified = false;
-                Vector3 startPosition = transform.position;
-                startPosition.y = collider.bounds.min.y;
-				DyPathManager.RequestPath(new DyPathRequest(startPosition, targetTransform.position, OnPathFound));
+				DyPathManager.RequestPath(new DyPathRequest(stand.position, targetTransform.position, movementCapsule, maxSlope, OnPathFound));
 				targetPosOld = targetTransform.position;
                 targetLocalPosOld = targetTransform.localPosition;
                 targetParentOld = targetTransform.parent;

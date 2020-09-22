@@ -61,12 +61,25 @@ public struct DyPathRequest
 {
     public Vector3 pathStart;
     public Vector3 pathEnd;
+    public MovementCapsule movementCapsule;
+    public float maxSlope;
     public Action<DyNode[], bool> callback;
 
     public DyPathRequest(Vector3 _start, Vector3 _end, Action<DyNode[], bool> _callback)
     {
         pathStart = _start;
         pathEnd = _end;
+        movementCapsule = new MovementCapsule();
+        maxSlope = 40f;
+        callback = _callback;
+    }
+
+    public DyPathRequest(Vector3 _start, Vector3 _end, MovementCapsule _movementCapsule, float _maxSlope, Action<DyNode[], bool> _callback)
+    {
+        pathStart = _start;
+        pathEnd = _end;
+        movementCapsule = _movementCapsule;
+        maxSlope = _maxSlope;
         callback = _callback;
     }
 }

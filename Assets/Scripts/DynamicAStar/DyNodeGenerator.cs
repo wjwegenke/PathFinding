@@ -28,7 +28,7 @@ public class DyNodeGenerator : MonoBehaviour
 
         for (int x = -xSteps; x <= xSteps; x++) {
             for (int z = -zSteps; z <= zSteps; z++) {
-                Vector3 castPoint = collider.bounds.center + new Vector3(x * spacing, yRadius, z * spacing) + Vector3.up * (yRadius + 0.1f);
+                Vector3 castPoint = collider.bounds.center + new Vector3(x * spacing, yRadius + 0.1f, z * spacing);
                 castPoint.x = Mathf.Clamp(castPoint.x, collider.bounds.min.x, collider.bounds.max.x);
                 castPoint.z = Mathf.Clamp(castPoint.z, collider.bounds.min.z, collider.bounds.max.z);
 
@@ -39,7 +39,7 @@ public class DyNodeGenerator : MonoBehaviour
                     bool createNode = true;
                     //Check if object is on node point
                     if (!isDynamic) {
-                        Collider[] colliders = Physics.OverlapSphere(hit.point, 0, DyNodeManager.Instance.movementMask);
+                        Collider[] colliders = Physics.OverlapSphere(hit.point + Vector3.up * 0.05f, 0.05f, DyNodeManager.Instance.movementMask);
                         if (colliders.Length > 0) {
                             foreach (Collider collider in colliders) {
                                 if (collider.transform != this.transform && collider.tag != "Dynamic")
@@ -71,10 +71,10 @@ public class DyNodeGenerator : MonoBehaviour
                 && collider.bounds.max.x >= oldBounds.min.x && collider.bounds.max.y >= oldBounds.min.y && collider.bounds.max.z >= oldBounds.min.z) {
                 Vector3 min = new Vector3(Mathf.Min(collider.bounds.min.x, oldBounds.min.x), Mathf.Min(collider.bounds.min.y, oldBounds.min.y), Mathf.Min(collider.bounds.min.z, oldBounds.min.z));
                 Vector3 max = new Vector3(Mathf.Max(collider.bounds.max.x, oldBounds.max.x), Mathf.Max(collider.bounds.max.y, oldBounds.max.y), Mathf.Max(collider.bounds.max.z, oldBounds.max.z));
-                DyNodeManager.UpdateClustersWithin(min, max);
+                DyNodeManager.UpdateClustersAround(min, max);
             } else {
-                DyNodeManager.UpdateClustersWithin(oldBounds.min, oldBounds.max);
-                DyNodeManager.UpdateClustersWithin(collider.bounds.min, collider.bounds.max);
+                DyNodeManager.UpdateClustersAround(oldBounds.min, oldBounds.max);
+                DyNodeManager.UpdateClustersAround(collider.bounds.min, collider.bounds.max);
             }
             OnPositionHasChanged(EventArgs.Empty);
             oldBounds = collider.bounds;
